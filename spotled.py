@@ -195,19 +195,29 @@ class FontCharacterData:
         d.write_checksum()
         return d.to_bytes()
 
-def gen_bitmap(text_rep):
+def gen_bitmap(*lines, min_len=0, true_char='1'):
+    if min_len % 8 != 0:
+        raise ValueError('forced_width must be divisible by 8')
+
     data = bytearray()
-    for i in range(0, len(text_rep), 8):
-        data.append(
-            ((text_rep[i] == '1') << 7) |
-            ((text_rep[i+1] == '1') << 6) |
-            ((text_rep[i+2] == '1') << 5) |
-            ((text_rep[i+3] == '1') << 4) |
-            ((text_rep[i+4] == '1') << 3) |
-            ((text_rep[i+5] == '1') << 2) |
-            ((text_rep[i+6] == '1') << 1) |
-            (text_rep[i+7] == '1')
-        )
+    for text in lines:
+        if len(text) < min_len:
+            text += '.' * (min_len - len(text))
+        else:
+            excess = len(text) % 8
+            if excess != 0:
+                text += '.' * (8 - excess)
+        for i in range(0, len(text), 8):
+            data.append(
+                ((text[i] == true_char) << 7) |
+                ((text[i+1] == true_char) << 6) |
+                ((text[i+2] == true_char) << 5) |
+                ((text[i+3] == true_char) << 4) |
+                ((text[i+4] == true_char) << 3) |
+                ((text[i+5] == true_char) << 2) |
+                ((text[i+6] == true_char) << 1) |
+                (text[i+7] == true_char)
+            )
     return bytes(data)
 
 class TimeData:
