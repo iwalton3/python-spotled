@@ -348,6 +348,20 @@ class TextData:
         d.write_bytes(EffectData(self.effects).serialize())
         return d.to_bytes()
 
+class NumberBarData:
+    def __init__(self, values):
+        self.values = values
+
+    def serialize(self):
+        d = ByteWriter()
+        d.write_int(len(self.values) * 2 + 9) # length
+        d.write_short(10) # type
+        d.write_short(len(self.values))
+        for value in self.values:
+            d.write_short(value)
+        d.write_checksum()
+        return d.to_bytes()
+
 class GenericCommandResponse:
     def __init__(self, data):
         d = ByteReader(data)
