@@ -1,4 +1,4 @@
-from spotled import SendDataCommand, AnimationData, FrameData, gen_bitmap, LedConnection
+from spotled import SendDataCommand, AnimationData, FrameData, gen_bitmap, LedConnection, Effect
 
 default_monika = FrameData(48, 12, gen_bitmap(
     '11111..............1.....1......................'
@@ -111,7 +111,7 @@ monika_command = SendDataCommand(
             default_monika,
             default_monika,
             corrupt_monika_5
-        ], 130, 9, 0
+        ], 130, 9, Effect.NONE
     ).serialize()
 )
 

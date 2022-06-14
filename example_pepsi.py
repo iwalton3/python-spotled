@@ -1,4 +1,4 @@
-from spotled import FontCharacterData, SendDataCommand, FontData, TextData, gen_bitmap, LedConnection
+from spotled import FontCharacterData, SendDataCommand, FontData, TextData, gen_bitmap, LedConnection, Effect
 
 pepsi_font_command = SendDataCommand(
     FontData([
@@ -147,7 +147,7 @@ pepsi_font_command = SendDataCommand(
     ]).serialize()
 )
 
-pepsi_command = SendDataCommand(TextData('Drink Pepsi ', 0, 3).serialize())
+pepsi_command = SendDataCommand(TextData('Drink Pepsi ', 0, Effect.SCROLL_LEFT).serialize())
 
 if __name__ == '__main__':
     import sys

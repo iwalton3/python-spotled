@@ -235,15 +235,25 @@ class SpeedData:
         d.write_checksum()
         return d.to_bytes()
 
+class Effect(Enum):
+    NONE = 0
+    SCROLL_UP = 1
+    SCROLL_DOWN = 2
+    SCROLL_LEFT = 3
+    SCROLL_RIGHT = 4
+    STACK = 5
+    EXPAND = 6
+    LASER = 7
+
 class EffectData:
-    def __init__(self, effect):
+    def __init__(self, effect: Effect):
         self.effect = effect
 
     def serialize(self):
         d = ByteWriter()
         d.write_int(8) # length
         d.write_short(8) # type
-        d.write_byte(self.effect)
+        d.write_byte(self.effect.value)
         d.write_checksum()
         return d.to_bytes()
 
@@ -266,7 +276,7 @@ class FrameData:
         return d.to_bytes()
 
 class AnimationData:
-    def __init__(self, frames, time, speed, effects):
+    def __init__(self, frames, time, speed, effects: Effect):
         self.frames = frames
         self.time = time
         self.speed = speed
@@ -314,7 +324,7 @@ class ColorData:
         return d.to_bytes()
 
 class TextData:
-    def __init__(self, text, speed, effects, colors=None):
+    def __init__(self, text, speed, effects: Effect, colors=None):
         self.text = text
         self.colors = colors
         self.speed = speed
