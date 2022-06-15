@@ -2,6 +2,7 @@ from gattlib import GATTRequester
 from threading import Event
 from enum import Enum
 import time
+import os.path
 
 class ByteWriter:
     def __init__(self):
@@ -197,7 +198,7 @@ class FontCharacterData:
 
 def gen_bitmap(*lines, min_len=0, true_char='1'):
     if min_len % 8 != 0:
-        raise ValueError('forced_width must be divisible by 8')
+        min_len += 8 - (min_len % 8)
 
     data = bytearray()
     for text in lines:
@@ -407,6 +408,51 @@ def getCommandResponse(data):
 
     return response
 
+def parse_yaff_font(fontfile):
+    font = {}
+    with open(fontfile) as fh:
+        current_char = None
+        line_acc = []
+        for rl in fh:
+            line = rl.strip()
+            if line.endswith(':') and (line.startswith('0x') or line.startswith('u+')):
+                if current_char is not None:
+                    font[current_char] = line_acc
+                    line_acc = []
+                current_char = chr(int(line[2:-1], 16))
+            elif '.' in line or '@' in line:
+                line_acc.append(line.replace('@', '1'))
+        if current_char is not None:
+            font[current_char] = line_acc
+    return font
+
+def parse_draw_font(fontfile):
+    font = {}
+    with open(fontfile) as fh:
+        current_char = None
+        line_acc = []
+        for rl in fh:
+            line = rl.strip()
+            if len(line) > 2 and line[2] == ':':
+                if current_char is not None:
+                    font[current_char] = line_acc
+                    line_acc = []
+                current_char = chr(int(line[0:2], 16))
+                if len(line) > 3:
+                    line_acc.append(line[3:].strip().replace('#', '1').replace('-', '.'))
+            elif '-' in line or '#' in line:
+                line_acc.append(line.replace('#', '1').replace('-', '.'))
+        if current_char is not None:
+            font[current_char] = line_acc
+    return font
+
+def parse_font(fontfile):
+    if fontfile.endswith('.yaff'):
+        return parse_yaff_font(fontfile)
+    if fontfile.endswith('.draw'):
+        return parse_draw_font(fontfile)
+    raise TypeError('Unknown font type.')
+
 class LedConnection:
     def __init__(self, address):
         self.connection = GATTRequester(address)
@@ -499,6 +545,34 @@ class LedConnection:
     def set_screen_mode(self, mode: ScreenMode):
         self.send_data(SendDataCommand(ScreenModeData(mode.value).serialize()))
 
+    def set_text(self, text, effect=Effect.SCROLL_LEFT, font="6x12", speed=0, min_height=12):
+        try_font = os.path.join(os.path.dirname(__file__), 'fonts', f'{font}.yaff')
+        if os.path.exists(try_font):
+            font = try_font
+        elif not os.path.exists(font):
+            raise FileNotFoundError('Could not find font file.')
+        font_data = parse_font(font)
+        
+        font_characters = []
+        for char in text:
+            char_data = font_data[char]
+            height = len(char_data)
+            width = len(char_data[0])
+            if height < min_height:
+                diff = min_height - height
+                for _ in range(diff // 2 + diff % 2):
+                    char_data.insert(0, '')
+                for _ in range(diff // 2):
+                    char_data.append('')
+                height = min_height
+            if width < height:
+                width = height
+            font_characters.append(FontCharacterData(width, height, char, gen_bitmap(*char_data, min_len=width)))
+
+        font_character_data = SendDataCommand(FontData(font_characters).serialize())
+        text_data = SendDataCommand(TextData(text, speed, effect).serialize())
+        self.send_data(font_character_data)
+        self.send_data(text_data)
+
     def disconnect(self):
         self.connection.disconnect()
-

@@ -20,6 +20,15 @@ sender = spotled.LedConnection('mac address of your device')
 sender.set_screen_mode(spotled.ScreenMode.NORMAL) # change screen orientation
 sender.set_brightness(100) # brightness seems to be 0-100
 
+# send text using the default 6x12 font
+sender.set_text('Hello world!')
+
+# send text which does not move
+sender.set_text(' Static', effect=spotled.Effect.NONE)
+
+# send smaller text (you can use any 12x12 or smaller yaff or draw font)
+sender.set_text('Static Text!', effect=spotled.Effect.NONE, font="4x6")
+
 # send number bars (used for music visualization)
 sender.send_data(spotled.SendDataCommand(spotled.NumberBarData([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 11, 10, 9]).serialize()))
 
@@ -49,3 +58,7 @@ sender.send_data(
 See the `example_monika.py` file for an example animation and `example_pepsi.py` for an example
 scrolling bitmap text display. You can replay existing payloads from Wireshark as well fairly
 easily by using the `SendDataCommand` and chopping off the header (first 15 bytes).
+
+Fonts from this software are from https://www.cl.cam.ac.uk/~mgk25/ucs-fonts.html and are public domain.
+
+You can get more fonts here: https://github.com/robhagemans/hoard-of-bitfonts
