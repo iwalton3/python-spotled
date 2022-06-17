@@ -29,6 +29,14 @@ sender.set_text(' Static', effect=spotled.Effect.NONE)
 # send smaller text (you can use any 12x12 or smaller yaff or draw font)
 sender.set_text('Static Text!', effect=spotled.Effect.NONE, font="4x6")
 
+# send multiple pages of 2-line text
+# you can adjust time per frame with the frame_duration param
+sender.set_text_lines("You can show several pages of text!\nNewlines\nare allowed.")
+
+# send multiple pages of scrolling 2-line text
+# you can adjust animation speed with the speed param
+sender.set_text_lines("A long time ago in a galaxy far, far away....", effect=spotled.Effect.SCROLL_UP)
+
 # send number bars (used for music visualization)
 sender.send_data(spotled.SendDataCommand(spotled.NumberBarData([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 11, 10, 9]).serialize()))
 
