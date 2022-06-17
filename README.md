@@ -11,6 +11,20 @@ Notice! This library is not affilated with the creator of this product.
 
 If you brick your device (albeit unlikely) with this library, DO NOT BLAME ME!
 
+## Installation
+
+You need [python3-gattlib](https://pypi.org/project/gattlib/), which is installable on debian with:
+
+```bash
+sudo apt install python3-gattlib
+```
+
+Then install the package with:
+
+```bash
+sudo pip3 install spotled
+```
+
 ## Example usage
 
 ```python
