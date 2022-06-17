@@ -514,6 +514,7 @@ def create_font_characters(text, font_data, min_height=12):
         if width < height:
             width = height
         font_characters.append(FontCharacterData(width, height, char, gen_bitmap(*char_data, min_len=width)))
+    return font_characters
 
 def reflow_text(text, font_data, width=48):
     lines = text.replace('\r', '').split('\n')
