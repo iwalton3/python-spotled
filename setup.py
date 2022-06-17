@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name='spotled',
-    version='1.0.0',
+    version='1.0.1',
     author="Ian Walton",
     author_email="ian@iwalton.com",
     description="Allows control of SPOTLED bluetooth led displays via Python. (Unofficial)",
@@ -13,7 +13,7 @@ setup(
     long_description=open('README.md').read(),
     long_description_content_type="text/markdown",
     url="https://github.com/iwalton3/python-spotled",
-    py_modules=['spotled'],
+    packages=['spotled'],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
@@ -21,5 +21,8 @@ setup(
     ],
     python_requires='>=3.7',
     install_requires=['gattlib'],
-    include_package_data=True
+    include_package_data=True,
+    package_data={
+        "spotled": ["fonts/*.yaff"],
+    },
 )

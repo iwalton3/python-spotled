@@ -461,7 +461,7 @@ def parse_font(fontfile):
     raise TypeError('Unknown font type.')
 
 def find_and_load_font(font):
-    try_font = os.path.join(os.path.dirname(__file__), 'fonts', f'{font}.yaff')
+    try_font = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fonts', f'{font}.yaff')
     if os.path.exists(try_font):
         font = try_font
     elif not os.path.exists(font):
@@ -697,6 +697,18 @@ class LedConnection:
                 int(frame_duration * 1000),
                 speed,
                 effect
+            ).serialize()
+        )
+
+        self.send_data(frame_data)
+
+    def clear(self, width=48, height=12):
+        frame_data = SendDataCommand(
+            AnimationData(
+                [FrameData(width, height, b'\x00' * int(width * height / 8))],
+                0,
+                0,
+                Effect.NONE
             ).serialize()
         )
 
