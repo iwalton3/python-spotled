@@ -256,6 +256,11 @@ class Effect(Enum):
     EXPAND = 6
     LASER = 7
 
+class Align(Enum):
+    LEFT = 0
+    CENTER = 1
+    RIGHT = 2
+
 class EffectData:
     def __init__(self, effect: Effect):
         self.effect = effect
@@ -461,6 +466,29 @@ def find_and_load_font(font):
         raise FileNotFoundError('Could not find font file.')
     return parse_font(font)
 
+def pad_character_to_height(char_data, min_height, min_length=0):
+    height = len(char_data)
+    filler_line = '.' * min_length
+    if height < min_height:
+        diff = min_height - height
+        for _ in range(diff // 2 + diff % 2):
+            char_data.insert(0, filler_line)
+        for _ in range(diff // 2):
+            char_data.append(filler_line)
+    return char_data
+
+def pad_row_to_width(row_data, min_width, align=Align.CENTER):
+    width = len(row_data)
+    remaining = min_width - width
+    if remaining > 0:
+        if align == Align.LEFT:
+            return row_data + ('.' * remaining)
+        if align == Align.CENTER:
+            return ('.' * (remaining // 2)) + row_data + ('.' * (remaining // 2 + remaining % 2))
+        if align == Align.RIGHT:
+            return ('.' * remaining) + row_data
+    return row_data
+
 def create_font_characters(text, font_data, min_height=12):
     font_characters = []
     for char in text:
@@ -468,15 +496,80 @@ def create_font_characters(text, font_data, min_height=12):
         height = len(char_data)
         width = len(char_data[0])
         if height < min_height:
-            diff = min_height - height
-            for _ in range(diff // 2 + diff % 2):
-                char_data.insert(0, '')
-            for _ in range(diff // 2):
-                char_data.append('')
+            pad_character_to_height(char_data, min_height)
             height = min_height
         if width < height:
             width = height
         font_characters.append(FontCharacterData(width, height, char, gen_bitmap(*char_data, min_len=width)))
+
+def reflow_text(text, font_data, width=48):
+    lines = text.replace('\r', '').split('\n')
+    wrapped_lines = []
+    for line in lines:
+        current_line = ''
+        remaining_width = width
+        for i, orig_word in enumerate(line.split(' ')):
+            if i != 0:
+                word = ' ' + orig_word
+            else:
+                word = orig_word
+
+            text_width = sum(len(font_data[char][0]) for char in word)
+            if remaining_width - text_width >= 0:
+                remaining_width -= text_width
+                current_line += word
+            elif text_width > width:
+                for char in word:
+                    char_width = len(font_data[char][0])
+                    if remaining_width - char_width >= 0:
+                        current_line += char
+                    else:
+                        wrapped_lines.append(current_line)
+                        remaining_width = width - char_width
+                        current_line = char
+            else:
+                wrapped_lines.append(current_line)
+                text_width = sum(len(font_data[char][0]) for char in orig_word)
+                remaining_width = width - text_width
+                current_line = orig_word
+        wrapped_lines.append(current_line)
+    return wrapped_lines
+
+def lines_to_frames(lines, font_data, align=Align.CENTER, width=48, lines_per_frame=2, line_height=6):
+    raster_lines = []
+    for line in lines:
+        raster_line = ['' for _ in range(line_height)]
+        for char in line:
+            char_data = font_data[char]
+            height = len(char_data)
+            if height > line_height:
+                raise ValueError('Character height exceeds line height.')
+            if height < line_height:
+                pad_character_to_height(char_data, line_height, len(char_data[0]))
+            for i, char_line in enumerate(char_data):
+                raster_line[i] += char_line
+        if len(raster_line[0]) < width:
+            for i in range(len(raster_line)):
+                raster_line[i] = pad_row_to_width(raster_line[i], width, align)
+        raster_lines.append(raster_line)
+    raster_frames = []
+    current_frame = []
+    current_frame_line_length = 0
+    for raster_line in raster_lines:
+        if current_frame_line_length < lines_per_frame:
+            current_frame.extend(raster_line)
+            current_frame_line_length += 1
+        else:
+            raster_frames.append(current_frame)
+            current_frame = raster_line
+            current_frame_line_length = 1
+    if len(current_frame) > 0:
+        if current_frame_line_length < lines_per_frame:
+            for _ in range(lines_per_frame - current_frame_line_length):
+                current_frame.extend(['.' * width for _ in range(line_height)])
+        raster_frames.append(current_frame)
+
+    return raster_frames
 
 class LedConnection:
     def __init__(self, address):
@@ -577,6 +670,23 @@ class LedConnection:
         text_data = SendDataCommand(TextData(text, speed, effect).serialize())
         self.send_data(font_character_data)
         self.send_data(text_data)
+
+    def set_text_lines(self, text, align=Align.CENTER, font="4x6", frame_duration=2, width=48, lines_per_frame=2, line_height=6, effect=Effect.NONE, speed=20):
+        font_data = find_and_load_font(font)
+        lines = reflow_text(text, font_data, width,)
+        frames = lines_to_frames(lines, font_data, align, width, lines_per_frame, line_height)
+
+        height = lines_per_frame * line_height
+        frame_data = SendDataCommand(
+            AnimationData(
+                [FrameData(width, height, gen_bitmap(*frame)) for frame in frames],
+                int(frame_duration * 1000),
+                speed,
+                effect
+            ).serialize()
+        )
+
+        self.send_data(frame_data)
 
     def disconnect(self):
         self.connection.disconnect()
