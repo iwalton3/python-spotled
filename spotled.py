@@ -420,12 +420,14 @@ def parse_yaff_font(fontfile):
         line_acc = []
         for rl in fh:
             line = rl.strip()
+            if line.startswith('#'):
+                continue
             if line.endswith(':') and (line.startswith('0x') or line.startswith('u+')):
                 if current_char is not None:
                     font[current_char] = line_acc
                     line_acc = []
                 current_char = chr(int(line[2:-1], 16))
-            elif '.' in line or '@' in line:
+            elif ('.' in line or '@' in line) and not ':' in line:
                 line_acc.append(line.replace('@', '1'))
         if current_char is not None:
             font[current_char] = line_acc
