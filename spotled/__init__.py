@@ -536,6 +536,7 @@ def reflow_text(text, font_data, width=48):
                 for char in word:
                     char_width = len(find_char_in_font(char, font_data)[0])
                     if remaining_width - char_width >= 0:
+                        remaining_width -= char_width
                         current_line += char
                     else:
                         wrapped_lines.append(current_line)
