@@ -491,10 +491,21 @@ def pad_row_to_width(row_data, min_width, align=Align.CENTER):
             return ('.' * remaining) + row_data
     return row_data
 
+def find_char_in_font(char, font_data):
+    try:
+        return font_data[char]
+    except KeyError:
+        if '\ufffd' in font_data:
+            return font_data['\ufffd']
+        elif '\x00' in font_data:
+            return font_data['\x00']
+        else:
+            return font_data[' ']
+
 def create_font_characters(text, font_data, min_height=12):
     font_characters = []
     for char in text:
-        char_data = font_data[char]
+        char_data = find_char_in_font(char, font_data)
         height = len(char_data)
         width = len(char_data[0])
         if height < min_height:
@@ -516,13 +527,13 @@ def reflow_text(text, font_data, width=48):
             else:
                 word = orig_word
 
-            text_width = sum(len(font_data[char][0]) for char in word)
+            text_width = sum(len(find_char_in_font(char, font_data)[0]) for char in word)
             if remaining_width - text_width >= 0:
                 remaining_width -= text_width
                 current_line += word
             elif text_width > width:
                 for char in word:
-                    char_width = len(font_data[char][0])
+                    char_width = len(find_char_in_font(char, font_data)[0])
                     if remaining_width - char_width >= 0:
                         current_line += char
                     else:
@@ -531,7 +542,7 @@ def reflow_text(text, font_data, width=48):
                         current_line = char
             else:
                 wrapped_lines.append(current_line)
-                text_width = sum(len(font_data[char][0]) for char in orig_word)
+                text_width = sum(len(find_char_in_font(char, font_data)[0]) for char in orig_word)
                 remaining_width = width - text_width
                 current_line = orig_word
         wrapped_lines.append(current_line)
@@ -542,7 +553,7 @@ def lines_to_frames(lines, font_data, align=Align.CENTER, width=48, lines_per_fr
     for line in lines:
         raster_line = ['' for _ in range(line_height)]
         for char in line:
-            char_data = font_data[char]
+            char_data = find_char_in_font(char, font_data)
             height = len(char_data)
             if height > line_height:
                 raise ValueError('Character height exceeds line height.')
