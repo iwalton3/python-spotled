@@ -453,6 +453,31 @@ def parse_font(fontfile):
         return parse_draw_font(fontfile)
     raise TypeError('Unknown font type.')
 
+def find_and_load_font(font):
+    try_font = os.path.join(os.path.dirname(__file__), 'fonts', f'{font}.yaff')
+    if os.path.exists(try_font):
+        font = try_font
+    elif not os.path.exists(font):
+        raise FileNotFoundError('Could not find font file.')
+    return parse_font(font)
+
+def create_font_characters(text, font_data, min_height=12):
+    font_characters = []
+    for char in text:
+        char_data = font_data[char]
+        height = len(char_data)
+        width = len(char_data[0])
+        if height < min_height:
+            diff = min_height - height
+            for _ in range(diff // 2 + diff % 2):
+                char_data.insert(0, '')
+            for _ in range(diff // 2):
+                char_data.append('')
+            height = min_height
+        if width < height:
+            width = height
+        font_characters.append(FontCharacterData(width, height, char, gen_bitmap(*char_data, min_len=width)))
+
 class LedConnection:
     def __init__(self, address):
         self.connection = GATTRequester(address)
@@ -546,29 +571,8 @@ class LedConnection:
         self.send_data(SendDataCommand(ScreenModeData(mode.value).serialize()))
 
     def set_text(self, text, effect=Effect.SCROLL_LEFT, font="6x12", speed=0, min_height=12):
-        try_font = os.path.join(os.path.dirname(__file__), 'fonts', f'{font}.yaff')
-        if os.path.exists(try_font):
-            font = try_font
-        elif not os.path.exists(font):
-            raise FileNotFoundError('Could not find font file.')
-        font_data = parse_font(font)
-        
-        font_characters = []
-        for char in text:
-            char_data = font_data[char]
-            height = len(char_data)
-            width = len(char_data[0])
-            if height < min_height:
-                diff = min_height - height
-                for _ in range(diff // 2 + diff % 2):
-                    char_data.insert(0, '')
-                for _ in range(diff // 2):
-                    char_data.append('')
-                height = min_height
-            if width < height:
-                width = height
-            font_characters.append(FontCharacterData(width, height, char, gen_bitmap(*char_data, min_len=width)))
-
+        font_data = find_and_load_font(font)
+        font_characters = create_font_characters(text, font_data, min_height)
         font_character_data = SendDataCommand(FontData(font_characters).serialize())
         text_data = SendDataCommand(TextData(text, speed, effect).serialize())
         self.send_data(font_character_data)
