@@ -860,7 +860,7 @@ class LedConnection:
         seek = 0
         sent_payloads = 0
         send_size = 20
-        send_count = 6
+        send_count = self.buffer_size // send_size
 
         while seek < len(payload):
             self.current_wait_event.clear()
@@ -906,7 +906,7 @@ class LedConnection:
         """
         self.send_data(SendDataCommand(ScreenModeData(mode.value).serialize()))
 
-    def set_text_by_chars(self, text, effect=Effect.SCROLL_LEFT, font="6x12", speed=0, min_height=12, char_limit=72):
+    def set_text_by_chars(self, text, effect=Effect.SCROLL_LEFT, font="6x12", speed=0, char_limit=72):
         """
         Sends text as characters. The device decides how to display them.
         This tends to be slower and more limited than set_text which sends the text as an animation.
@@ -915,33 +915,31 @@ class LedConnection:
             raise ValueError("The text exceeds the device character limit.")
 
         font_data = find_and_load_font(font)
-        font_characters = create_font_characters(text, font_data, min_height)
+        font_characters = create_font_characters(text, font_data, self.height)
         font_character_data = SendDataCommand(FontData(font_characters).serialize())
         text_data = SendDataCommand(TextData(text, speed, effect).serialize())
         self.send_data(font_character_data)
         self.send_data(text_data)
 
-    def set_text_lines(self, text, align=Align.CENTER, font="4x6", frame_duration=2, width=48,
-            lines_per_frame=2, line_height=6, effect=Effect.NONE, speed=20, reflow=True,
-            frame_limit=20):
+    def set_text_lines(self, text, align=Align.CENTER, font="4x6", frame_duration=2, line_height=6,
+            effect=Effect.NONE, speed=20, reflow=True):
         """
         Sends multi-line text as an animation. Can pack two lines of text onto the display.
         """
         font_data = find_and_load_font(font)
 
         if reflow:
-            lines = reflow_text(text, font_data, width)
+            lines = reflow_text(text, font_data, self.width)
         else:
             lines = text.replace('\r', '').split('\n')
 
-        frames = lines_to_frames(lines, font_data, align, width, lines_per_frame, line_height)
-        if len(frames) > frame_limit:
+        frames = lines_to_frames(lines, font_data, align, self.width, self.height // line_height, line_height)
+        if len(frames) > self.frame_limit:
             raise ValueError("The animation exceeds the device frame limit.")
 
-        height = lines_per_frame * line_height
         frame_data = SendDataCommand(
             AnimationData(
-                [FrameData(width, height, gen_bitmap(*frame)) for frame in frames],
+                [FrameData(self.width, self.height, gen_bitmap(*frame)) for frame in frames],
                 int(frame_duration * 1000),
                 speed,
                 effect
@@ -950,7 +948,7 @@ class LedConnection:
 
         self.send_data(frame_data)
 
-    def set_text(self, text, effect=Effect.SCROLL_LEFT, font="6x12", speed=0, min_height=12):
+    def set_text(self, text, effect=Effect.SCROLL_LEFT, font="6x12", speed=0):
         """
         Sends single-line scrolling text as an animation.
         """
@@ -958,20 +956,19 @@ class LedConnection:
             text,
             Align.LEFT,
             font,
-            lines_per_frame=1,
-            line_height=min_height,
+            line_height=self.height,
             effect=effect,
             speed=speed,
             reflow=False
         )
 
-    def clear(self, width=48, height=12):
+    def clear(self):
         """
         Clears the display by sending an empty frame.
         """
         frame_data = SendDataCommand(
             AnimationData(
-                [FrameData(width, height, b'\x00' * int(width * height / 8))],
+                [FrameData(self.width, self.height, b'\x00' * int(self.width * self.height / 8))],
                 0,
                 0,
                 Effect.NONE
