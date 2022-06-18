@@ -731,15 +731,15 @@ class LedConnection:
         self.current_wait_event.clear()
         self.connection.write_cmd(self.cmd_handle, command.serialize())
     
-    def wait_for_response(self):
+    def wait_for_response(self, timeout=0.2):
         """
         Wait for and return a response, usually from a command sent via send_command.
         """
-        if not self.current_wait_event.wait(5):
+        if not self.current_wait_event.wait(timeout):
             raise TimeoutError("Timeout exceeded waiting for GATT response.")
         return getCommandResponse(self.last_data)
 
-    def send_data(self, data_command):
+    def _send_data_internal(self, data_command, timeout=0.2):
         """
         Send a data command to the device.
         Currently only SendDataCommand is used, which accepts raw serialized data.
@@ -750,8 +750,7 @@ class LedConnection:
 
         payload = data_command.serialize()
         self.send_command(SendingDataStartCommand(serial_no, data_command.command_type, len(payload)))
-        
-        response = self.wait_for_response()
+        response = self.wait_for_response(timeout)
         assert type(response) == SendingDataResponse
         assert response.serial_no == serial_no
         assert response.command_type == data_command.command_type
@@ -770,14 +769,24 @@ class LedConnection:
 
             if sent_payloads >= send_count:
                 sent_payloads = 0
-                response = self.wait_for_response()
+                response = self.wait_for_response(timeout)
                 assert type(response) == ContinueSendingResponse
                 assert response.serial_no == serial_no
                 assert response.command_type == data_command.command_type
                 seek = response.continue_from
         
         self.send_command(SendingDataFinishCommand(serial_no, data_command.command_type, len(payload)))
-        self.wait_for_response()
+        self.wait_for_response(timeout)
+
+    def send_data(self, data_command, timeout=0.2, attempts=5):
+        for i in range(attempts + 1):
+            try:
+                self._send_data_internal(data_command, timeout)
+                return
+            except TimeoutError:
+                if i == attempts:
+                    raise
+                self.connection.disconnect()
 
     def set_brightness(self, brightness):
         """
