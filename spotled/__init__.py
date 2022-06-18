@@ -740,10 +740,6 @@ class LedConnection:
         return getCommandResponse(self.last_data)
 
     def _send_data_internal(self, data_command, timeout=0.2):
-        """
-        Send a data command to the device.
-        Currently only SendDataCommand is used, which accepts raw serialized data.
-        """
         self._ensure_connection()
         data_command.serial_no = self._next_data_serial_no()
         serial_no = self._next_command_serial_no()
@@ -779,6 +775,10 @@ class LedConnection:
         self.wait_for_response(timeout)
 
     def send_data(self, data_command, timeout=0.2, attempts=5):
+        """
+        Send a data command to the device.
+        Currently only SendDataCommand is used, which accepts raw serialized data.
+        """
         for i in range(attempts + 1):
             try:
                 self._send_data_internal(data_command, timeout)
