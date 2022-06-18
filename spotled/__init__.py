@@ -5,6 +5,10 @@ import time
 import os.path
 
 class ByteWriter:
+    """
+    A class for writing bytes into binary blob by type sequentially.
+    Also supports writing checksums for written data.
+    """
     def __init__(self):
         self.content = bytearray()
         self.checksum_start_pos = 0
@@ -41,6 +45,9 @@ class ByteWriter:
 
 
 class ByteReader:
+    """
+    A class for reading bytes out of a binary blob by type sequentially.
+    """
     def __init__(self, content):
         self.content = content
         self.current_pos = 0
@@ -87,6 +94,10 @@ def _discover_handles(req):
 
 
 class SendingDataStartCommand:
+    """
+    Indicates to the device that it is about to be sent
+    new command data.
+    """
     def __init__(self, serial_no, command_type, command_length):
         self.serial_no = serial_no
         self.command_type = command_type
@@ -102,6 +113,10 @@ class SendingDataStartCommand:
         return d.to_bytes()
 
 class SendingDataFinishCommand:
+    """
+    Indicates to the device that all of the command data
+    has been sent off successfully.
+    """
     def __init__(self, serial_no, command_type, command_length):
         self.serial_no = serial_no
         self.command_type = command_type
@@ -117,6 +132,11 @@ class SendingDataFinishCommand:
         return d.to_bytes()
 
 class SendDataCommand:
+    """
+    The main command used to send data to the device
+    including animations, text, and display settings.
+    This wraps ByteWriter and handles checksums for you.
+    """
     def __init__(self, content):
         self.serial_no = 1
         self.command_type = 32772
@@ -133,6 +153,10 @@ class SendDataCommand:
         return d.to_bytes()
 
 class BrightnessData:
+    """
+    Specifies the brightness of the display
+    from 0-100. Sent using a data command.
+    """
     def __init__(self, brightness):
         self.brightness = brightness
 
@@ -145,6 +169,10 @@ class BrightnessData:
         return d.to_bytes()
 
 class ScreenModeData:
+    """
+    Specifies if the screen should be flipped or
+    mirrored. Sent using a data command.
+    """
     def __init__(self, mode):
         self.mode = mode
 
@@ -163,6 +191,9 @@ class ScreenMode(Enum):
     MIRROR_UPSIDE_DOWN = 3
 
 class FontData:
+    """
+    Wraps a list of font character glyphs for text display.
+    """
     def __init__(self, font_characters):
         self.font_characters = font_characters
 
@@ -177,6 +208,10 @@ class FontData:
         return d.to_bytes()
 
 class FontCharacterData:
+    """
+    Wraps a single character glyph. Must be sent before
+    the glyph can be displayed in text mode.
+    """
     def __init__(self, width, height, character, bitmap):
         self.width = width
         self.height = height
@@ -197,6 +232,11 @@ class FontCharacterData:
         return d.to_bytes()
 
 def gen_bitmap(*lines, min_len=0, true_char='1'):
+    """
+    Converts a "text" bitmap consisting of . and 1
+    to a raw binary bitmap. min_len sets the minimum
+    row length.
+    """
     if min_len % 8 != 0:
         min_len += 8 - (min_len % 8)
 
@@ -222,6 +262,10 @@ def gen_bitmap(*lines, min_len=0, true_char='1'):
     return bytes(data)
 
 class TimeData:
+    """
+    The amount of time in milliseconds to show each frame of
+    an animation. Only used if there is no effect applied.
+    """
     def __init__(self, time):
         self.time = time
 
@@ -235,6 +279,9 @@ class TimeData:
         return d.to_bytes()
 
 class SpeedData:
+    """
+    The speed of the animation. Used if effect is not none.
+    """
     def __init__(self, speed):
         self.speed = speed
 
@@ -262,6 +309,10 @@ class Align(Enum):
     RIGHT = 2
 
 class EffectData:
+    """
+    Indicates the display mode (static, scrolling, etc)
+    for text/animations on the device.
+    """
     def __init__(self, effect: Effect):
         self.effect = effect
 
@@ -274,6 +325,12 @@ class EffectData:
         return d.to_bytes()
 
 class FrameData:
+    """
+    A single display frame. Use gen_bitmap to generate one
+    from text consisting of ./1 or convert the lines to
+    bytes in order. Also supports specifying a color
+    depth but I have no such devices to test this on.
+    """
     def __init__(self, width, height, bitmap, depth=1):
         self.width = width
         self.height = height
@@ -292,6 +349,11 @@ class FrameData:
         return d.to_bytes()
 
 class AnimationData:
+    """
+    Wraps a series of frames (max 20) along with speed, time,
+    and effect data. Time is per-frame time, but it is only
+    used if no effects are used.
+    """
     def __init__(self, frames, time, speed, effects: Effect):
         self.frames = frames
         self.time = time
@@ -312,6 +374,9 @@ class AnimationData:
         return d.to_bytes()
 
 class CharacterData:
+    """
+    A single unicode character value.
+    """
     def __init__(self, char):
         self.char = char
 
@@ -324,6 +389,9 @@ class CharacterData:
         return d.to_bytes()
 
 class ColorData:
+    """
+    An RGB color value. Used for text.
+    """
     def __init__(self, red, green, blue):
         self.red = red
         self.green = green
@@ -340,6 +408,12 @@ class ColorData:
         return d.to_bytes()
 
 class TextData:
+    """
+    This wraps a list of characters. The character glyphs
+    must have been sent previously or the device will not
+    be able to display them properly. It also sends colors
+    and speed/effect data.
+    """
     def __init__(self, text, speed, effects: Effect, colors=None):
         self.text = text
         self.colors = colors
@@ -365,6 +439,10 @@ class TextData:
         return d.to_bytes()
 
 class NumberBarData:
+    """
+    Graphs 16 values from 0-12 as a bar graph. Intended for
+    displaying a music spectrum display.
+    """
     def __init__(self, values):
         self.values = values
 
@@ -379,6 +457,10 @@ class NumberBarData:
         return d.to_bytes()
 
 class GenericCommandResponse:
+    """
+    This is the generic response wrapper for commands
+    that indicates the response type.
+    """
     def __init__(self, data):
         d = ByteReader(data)
         d.read_bytes(3) # junk data?
@@ -387,6 +469,10 @@ class GenericCommandResponse:
         self.content = d.read_bytes(length - 2)
 
 class SendingDataResponse:
+    """
+    This response is send from the device after you send it a request to
+    send a data command.
+    """
     def __init__(self, content):
         assert len(content) == 5
         d = ByteReader(content)
@@ -395,6 +481,10 @@ class SendingDataResponse:
         self.command_type = d.read_short()
 
 class ContinueSendingResponse:
+    """
+    This response is send from the device after it has finished processing
+    the last 6 data commands and is ready for more data.
+    """
     def __init__(self, content):
         assert len(content) == 8
         d = ByteReader(content)
@@ -633,16 +723,27 @@ class LedConnection:
                 raise TimeoutError("Timeout exceeded waiting for bluetooth connection.")
 
     def send_command(self, command):
+        """
+        Send a control command to the device.
+        Used for basic commands and data sending flow control.
+        """
         self._ensure_connection()
         self.current_wait_event.clear()
         self.connection.write_cmd(self.cmd_handle, command.serialize())
     
     def wait_for_response(self):
+        """
+        Wait for and return a response, usually from a command sent via send_command.
+        """
         if not self.current_wait_event.wait(5):
             raise TimeoutError("Timeout exceeded waiting for GATT response.")
         return getCommandResponse(self.last_data)
 
     def send_data(self, data_command):
+        """
+        Send a data command to the device.
+        Currently only SendDataCommand is used, which accepts raw serialized data.
+        """
         self._ensure_connection()
         data_command.serial_no = self._next_data_serial_no()
         serial_no = self._next_command_serial_no()
@@ -679,9 +780,15 @@ class LedConnection:
         self.wait_for_response()
 
     def set_brightness(self, brightness):
+        """
+        Sets the display brightness. 0 is lowest and 100 is highest.
+        """
         self.send_data(SendDataCommand(BrightnessData(brightness).serialize()))
 
     def set_screen_mode(self, mode: ScreenMode):
+        """
+        This allows flipping and mirroring the display. See ScreenMode Enum.
+        """
         self.send_data(SendDataCommand(ScreenModeData(mode.value).serialize()))
 
     def set_text_by_chars(self, text, effect=Effect.SCROLL_LEFT, font="6x12", speed=0, min_height=12, char_limit=72):
@@ -744,6 +851,9 @@ class LedConnection:
         )
 
     def clear(self, width=48, height=12):
+        """
+        Clears the display by sending an empty frame.
+        """
         frame_data = SendDataCommand(
             AnimationData(
                 [FrameData(width, height, b'\x00' * int(width * height / 8))],
