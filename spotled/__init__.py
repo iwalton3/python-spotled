@@ -777,6 +777,13 @@ class LedConnection:
         self.data_serial_no = 0
         self.command_serial_no = 0
 
+        self.buffer_size = self.query_command(GetBufferSizeCommand()).buffer_size
+        display_info = self.query_command(GetDisplayInfoCommand())
+        self.width = display_info.width
+        self.height = display_info.height
+        self.frame_limit = display_info.frame_limit
+        self.brightness = display_info.brightness
+
     def _on_notification(self, handle, data):
         if handle == self.cmd_handle:
             self.last_data = data
@@ -812,7 +819,23 @@ class LedConnection:
         self._ensure_connection()
         self.current_wait_event.clear()
         self.connection.write_cmd(self.cmd_handle, command.serialize())
-    
+
+    def query_command(self, command, timeout=0.2, attempts=5):
+        """
+        Send a control command to the device and wait for a response.
+        Used for basic commands and data sending flow control.
+        """
+        for i in range(attempts + 1):
+            try:
+                self._ensure_connection()
+                self.current_wait_event.clear()
+                self.connection.write_cmd(self.cmd_handle, command.serialize())
+                return self.wait_for_response(timeout)
+            except TimeoutError:
+                if i == attempts:
+                    raise
+                self.connection.disconnect()
+
     def wait_for_response(self, timeout=0.2):
         """
         Wait for and return a response, usually from a command sent via send_command.
@@ -875,6 +898,7 @@ class LedConnection:
         Sets the display brightness. 0 is lowest and 100 is highest.
         """
         self.send_data(SendDataCommand(BrightnessData(brightness).serialize()))
+        self.brightness = brightness
 
     def set_screen_mode(self, mode: ScreenMode):
         """
