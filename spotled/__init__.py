@@ -131,6 +131,39 @@ class SendingDataFinishCommand:
         d.write_int(self.command_length)
         return d.to_bytes()
 
+class GetDisplayInfoCommand:
+    """
+    Allows retrieving display parameters.
+    """
+    def serialize(self):
+        d = ByteWriter()
+        d.write_byte(4) # length
+        d.write_byte(18) # GetDisplayInfoCommand
+        d.write_short(0)
+        return d.to_bytes()
+
+class GetVersionCommand:
+    """
+    Allows retrieving device version info.
+    """
+    def serialize(self):
+        d = ByteWriter()
+        d.write_byte(4) # length
+        d.write_byte(16) # GetVersionCommand
+        d.write_short(0)
+        return d.to_bytes()
+
+class GetBufferSizeCommand:
+    """
+    Allows retrieving data buffer size.
+    """
+    def serialize(self):
+        d = ByteWriter()
+        d.write_byte(4) # length
+        d.write_byte(20) # GetBufferSizeCommand
+        d.write_short(0)
+        return d.to_bytes()
+
 class SendDataCommand:
     """
     The main command used to send data to the device
@@ -492,6 +525,46 @@ class ContinueSendingResponse:
         self.command_type = d.read_short()
         self.continue_from = d.read_int()
 
+class DisplayInfoResponse:
+    """
+    Contains response from GetDisplayInfoCommand
+    """
+    def __init__(self, content):
+        assert len(content) == 11
+        d = ByteReader(content)
+        d.read_bytes(2) # junk data?
+        assert d.read_byte() == 0
+        self.width = d.read_short()
+        self.height = d.read_short()
+        self.color_depth = d.read_byte()
+        self.frame_limit = d.read_byte()
+        self.brightness = d.read_byte()
+        self.font_info = d.read_byte()
+
+class VersionResponse:
+    """
+    Contains response from GetVersionCommand
+    """
+    def __init__(self, content):
+        assert len(content) == 13
+        d = ByteReader(content)
+        d.read_bytes(2) # junk data?
+        assert d.read_byte() == 0
+        self.device_type = d.read_short()
+        self.device_revision = d.read_int()
+        self.software_revision = d.read_int()
+
+class BufferSizeResponse:
+    """
+    Contains response from GetBufferSizeCommand
+    """
+    def __init__(self, content):
+        assert len(content) == 7
+        d = ByteReader(content)
+        d.read_bytes(2) # junk data?
+        assert d.read_byte() == 0
+        self.buffer_size = d.read_int()
+
 def getCommandResponse(data):
     response = GenericCommandResponse(data)
 
@@ -500,6 +573,15 @@ def getCommandResponse(data):
 
     if (response.command_type == 255):
         return ContinueSendingResponse(response.content)
+
+    if (response.command_type == 19):
+        return DisplayInfoResponse(response.content)
+
+    if (response.command_type == 17):
+        return VersionResponse(response.content)
+
+    if (response.command_type == 21):
+        return BufferSizeResponse(response.content)
 
     return response
 
