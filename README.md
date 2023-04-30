@@ -22,7 +22,7 @@ sudo apt install python3-gattlib
 Then install the package with:
 
 ```bash
-sudo pip3 install spotled
+pip3 install spotled
 ```
 
 ## Example usage
