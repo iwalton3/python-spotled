@@ -75,6 +75,32 @@ sender.send_data(
         ], 0, 0, spotled.Effect.NONE).serialize()
     )
 )
+
+if sender.color_depth != spotled.DisplayInfoResponse.COLOR_RGB:
+    exit()
+
+# if you have a color device, you can send RGB frames
+sender.send_data(
+    spotled.SendDataCommand([
+        spotled.AnimationDate([
+            spotled.FrameData(48, 12, spotled.gen_color_bitmap(
+                '................................................'
+                '..RRRR..GGGG..BBB...............................'
+                '..R..R..G.....B..B..............................'
+                '..RRR...G.GG..BBB...............................'
+                '..R..R..G..G..B..B..............................'
+                '..R..R..GGGG..BBBB..............................'
+                '................................................'
+                '................................................'
+                '................................................'
+                '................................................'
+                '................................................'
+                '................................................',
+                {'.': (0,0,0), 'R':(0,0,255), 'G': (0,255,0), 'B': (255,0,0)}
+            ), spotled.FrameData.COLOR_DEPTH_RGB)
+        ])
+    ])
+)
 ```
 
 See the `example_monika.py` file for an example animation and `example_pepsi.py` for an example
