@@ -263,6 +263,21 @@ class FontCharacterData:
         d.write_bytes(self.bitmap)
         d.write_checksum()
         return d.to_bytes()
+    
+
+def gen_color_bitmap(*lines, color_map={'.': (0, 0, 0), '1': (255, 255, 255)}):
+    """
+    Converts a "text" bitmap consisting of a predefined map of characters to a BGR tuple.
+    """
+    data = bytearray()
+    for text in lines:
+        for i in range(0, len(text)):
+            color = color_map[text[i]]
+            data.append(color[0])
+            data.append(color[1])
+            data.append(color[2])
+    return bytes(data)
+
 
 def gen_bitmap(*lines, min_len=0, true_char='1'):
     """
@@ -358,6 +373,8 @@ class EffectData:
         return d.to_bytes()
 
 class FrameData:
+    COLOR_DEPTH_MONOCHROME  = 1
+    COLOR_DEPTH_RGB         = 24
     """
     A single display frame. Use gen_bitmap to generate one
     from text consisting of ./1 or convert the lines to
@@ -525,10 +542,27 @@ class ContinueSendingResponse:
         self.command_type = d.read_short()
         self.continue_from = d.read_int()
 
+        
+class PauseSendingResponse:
+    """
+    This response is sent from the device when it has an error reading sent data.
+    Usually this indicates an invalid MTU (your packets are too big or too small)
+    """
+    def __init__(self, content):
+        assert len(content) == 8
+        d = ByteReader(content)
+        self.serial_no = d.read_short()
+        self.command_type = d.read_short()
+        self._unknown = d.read_byte()
+        self.offset = d.read_byte()
+
 class DisplayInfoResponse:
     """
     Contains response from GetDisplayInfoCommand
     """
+    COLOR_MONOCHROME    = 16
+    COLOR_RGB           = 255
+
     def __init__(self, content):
         assert len(content) == 11
         d = ByteReader(content)
@@ -573,6 +607,9 @@ def getCommandResponse(data):
 
     if (response.command_type == 255):
         return ContinueSendingResponse(response.content)
+
+    if (response.command_type == 254):
+        return PauseSendingResponse(response.content)
 
     if (response.command_type == 19):
         return DisplayInfoResponse(response.content)
@@ -766,7 +803,9 @@ def lines_to_frames(lines, font_data, align=Align.CENTER, width=48, lines_per_fr
 
 class LedConnection:
     def __init__(self, address):
+        self.mtu = 23
         self.connection = GATTRequester(address)
+        self.connection.on_connect = lambda mtu: self._set_mtu(mtu)
         self._ensure_connection()
         self.connection.write_by_handle(0x0f, b'\x00\x00\x00\x01') # request notifications
         self.connection.on_notification = lambda handle, data: self._on_notification(handle, data)
@@ -783,11 +822,15 @@ class LedConnection:
         self.height = display_info.height
         self.frame_limit = display_info.frame_limit
         self.brightness = display_info.brightness
+        self.color_depth = display_info.color_depth
 
     def _on_notification(self, handle, data):
         if handle == self.cmd_handle:
             self.last_data = data
             self.current_wait_event.set()
+
+    def _set_mtu(self, mtu):
+        self.mtu = mtu
     
     def _next_data_serial_no(self):
         self.data_serial_no = (self.data_serial_no + 1) & 0xffffffff
@@ -859,7 +902,7 @@ class LedConnection:
 
         seek = 0
         sent_payloads = 0
-        send_size = 20
+        send_size = self.mtu - 3
         send_count = self.buffer_size // send_size
 
         while seek < len(payload):
